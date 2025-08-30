@@ -23,8 +23,7 @@ class FinancialAnalysis:
         file_path = f"data/{symbol}_daily.csv"
 
         if os.path.exists(file_path):
-            print(f"{symbol} already exists, skipping ✅")
-            return pd.read_csv(file_path, index_col=0)
+            return self.update_stock(symbol)
         
         ticker = yf.Ticker(symbol)
         df = ticker.history(period="max")
@@ -44,6 +43,48 @@ class FinancialAnalysis:
         symbol_data = pd.read_csv(f"data/{symbol}_daily.csv", index_col=0)
         self.df_close[symbol] = symbol_data['close']
         return df
+    
+    def update_stock(self, symbol):
+        file_path = f"data/{symbol}_daily.csv"
+        today = pd.Timestamp.today().normalize()
+
+        if os.path.exists(file_path):
+            df = pd.read_csv(file_path, index_col=0, parse_dates=True)
+            last_date = df.index.max()
+            start_date = last_date + pd.Timedelta(days=1)
+
+            if start_date > today:
+                print(f"{symbol} already up to date ✅")
+                return df
+
+            ticker = yf.Ticker(symbol)
+            new_data = ticker.history(start=start_date, end=today)
+            if new_data.empty:
+                print(f"No new data for {symbol} ❌")
+                return df
+
+            new_data.index = new_data.index.tz_localize(None)
+            new_data = new_data.drop(columns=["Dividends", "Stock Splits"])
+            new_data = new_data.rename(columns={
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+                "Volume": "volume"
+            })
+            new_data = new_data.round({"open": 2, "high": 2, "low": 2, "close": 2})
+
+            # append new rows to old df
+            updated = pd.concat([df, new_data])
+            updated = updated[~updated.index.duplicated(keep="last")]  # remove duplicates
+            updated.to_csv(file_path)
+
+            print(f"{symbol} updated to {today.date()} ✅")
+            return updated
+
+        else:
+            print("Something went wrong")
+            return
     
     def daily_changes(self):
         # How much each number changed from the day before
