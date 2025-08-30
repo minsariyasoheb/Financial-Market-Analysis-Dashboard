@@ -25,8 +25,16 @@ class FinancialAnalysis:
         if os.path.exists(file_path):
             return self.update_stock(symbol)
         
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period="max")
+        try:
+            ticker = yf.Ticker(symbol)
+            df = ticker.history(period="max")
+            if df.empty or df['Open'].sum() == 0:
+                print(f"{symbol} does not exist or has no data")
+                return
+        except Exception as e:
+            print(f"Failed to fetch {symbol}: {e}")
+            return None
+        
         df.index = df.index.tz_localize(None)
         df = df.drop(columns=["Dividends", "Stock Splits"])
         df = df.rename(columns={
