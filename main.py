@@ -12,9 +12,10 @@ class FinancialAnalysis:
         self.df_close = {}
 
         for i in file_names:
-            symbol = pd.read_csv(f"data/{i.split("_")[0]}_daily.csv", index_col=0)
-            self.update_stock(symbol)
-            close[i.split("_")[0]] = symbol['close']
+            symbol_str = i.split("_")[0]
+            self.update_stock(symbol_str)  # updates CSV first
+            df = pd.read_csv(f"data/{symbol_str}_daily.csv", index_col=0)  # read the updated CSV
+            close[symbol_str] = df['close']
         self.df_close = pd.DataFrame(close).sort_index().fillna(method="ffill")
 
     def fetch_stock(self, symbol):
