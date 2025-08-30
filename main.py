@@ -1,42 +1,50 @@
 import os
-import requests
 import pandas as pd
-from dotenv import load_dotenv
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-# load_dotenv()
-# api_key = os.getenv("ALPHA_VANTAGE_KEY")
-
-# url = "https://www.alphavantage.co/query"
-# params = {
-#     "function": "TIME_SERIES_DAILY",
-#     "symbol": "TSLA",
-#     "apikey": api_key
-# }
+import yfinance as yf
 
 class FinancialAnalysis:
     def __init__(self):
-        # Load all CSVs and keep only the closing prices
-        aapl = pd.read_csv("data/AAPL_daily.csv", index_col=0)
-        msft = pd.read_csv("data/MSFT_daily.csv", index_col=0)
-        amzn = pd.read_csv("data/AMZN_daily.csv", index_col=0)
-        blk = pd.read_csv("data/BLK_daily.csv", index_col=0)
-        tsla = pd.read_csv("data/TSLA_daily.csv", index_col=0)
+        directory = './data'
+        os.makedirs(directory, exist_ok=True) 
+        all_entries = os.listdir(directory)
+        file_names = [f for f in all_entries if os.path.isfile(os.path.join(directory, f))]
+        symbols = []
+        close = {}
+        self.df_close = {}
+
+        for i in file_names:
+            symbols.append(i.split("_")[0])
+            symbol = pd.read_csv(f"data/{i.split("_")[0]}_daily.csv", index_col=0)
+            close[i.split("_")[0]] = symbol['close']
+        self.df_close = pd.DataFrame(close).sort_index().fillna(method="ffill")
+
+    def fetch_stock(self, symbol):
+        os.makedirs("data", exist_ok=True)
+        file_path = f"data/{symbol}_daily.csv"
+
+        if os.path.exists(file_path):
+            print(f"{symbol} already exists, skipping ✅")
+            return pd.read_csv(file_path, index_col=0)
         
-        # Combine into one table
-        self.df_close = pd.DataFrame({
-            "AAPL": aapl["close"],
-            "MSFT": msft["close"],
-            "AMZN": amzn["close"],
-            "BLK": blk["close"],
-            "TSLA": tsla["close"]
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period="max")
+        df.index = df.index.tz_localize(None)
+        df = df.drop(columns=["Dividends", "Stock Splits"])
+        df = df.rename(columns={
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "volume"
         })
-
-        # Convert dates and sort
-        self.df_close.index = pd.to_datetime(self.df_close.index)
-        self.df_close = self.df_close.sort_index()
-
+        df = df.round({"open": 2, "high": 2, "low": 2, "close": 2})
+        df = df.reset_index()
+        df.to_csv(f"data/{symbol}_daily.csv", index=False)
+        print(f"Saved {symbol} full history ✅")
+        symbol_data = pd.read_csv(f"data/{symbol}_daily.csv", index_col=0)
+        self.df_close[symbol] = symbol_data['close']
+        return df
+    
     def daily_changes(self):
         # How much each number changed from the day before
         return self.df_close.pct_change()
@@ -47,10 +55,10 @@ class FinancialAnalysis:
         return returns.corr()
 
     def volatility(self, window=10):
-        # How jumpy the numbers are over time
         returns = self.daily_changes()
-        return returns.rolling(window).std()
-
+        vol = returns.rolling(window).std() * 100   # convert to %
+        print(f"\nVolatility ({window}-day window) [%]:")
+        return vol.tail(window)   # show last 'window' rows
 
 # Usage
 app = FinancialAnalysis()
@@ -64,5 +72,4 @@ print(app.daily_changes())
 print("\nCorrelation Matrix:")
 print(app.correlation_matrix())
 
-print("\nVolatility (10-day window):")
-print(app.volatility().iloc[-10:-1])
+print(app.volatility())
