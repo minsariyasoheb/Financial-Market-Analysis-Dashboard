@@ -8,13 +8,12 @@ class FinancialAnalysis:
         os.makedirs(directory, exist_ok=True) 
         all_entries = os.listdir(directory)
         file_names = [f for f in all_entries if os.path.isfile(os.path.join(directory, f))]
-        symbols = []
         close = {}
         self.df_close = {}
 
         for i in file_names:
-            symbols.append(i.split("_")[0])
             symbol = pd.read_csv(f"data/{i.split("_")[0]}_daily.csv", index_col=0)
+            self.update_stock(symbol)
             close[i.split("_")[0]] = symbol['close']
         self.df_close = pd.DataFrame(close).sort_index().fillna(method="ffill")
 
