@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import yfinance as yf
+import streamlit as st
 from analysis.visualization import visualizations
 
 class FinancialAnalysis:
@@ -28,7 +29,7 @@ class FinancialAnalysis:
         
         try:
             ticker = yf.Ticker(symbol)
-            df = ticker.history(period="max")
+            df = ticker.history(period="1y")
             if df.empty or df['Open'].sum() == 0:
                 print(f"{symbol} does not exist or has no data")
                 return
@@ -113,7 +114,7 @@ class FinancialAnalysis:
         if symbols is None:
             symbols = self.df_close.columns[:5]  # first 5 by default
         data_to_plot = self.df_close[symbols].tail(days)
-        self.viz.line_chart(data_to_plot, "Stock Prices", "Date", "Price")
+        st.line_chart(data_to_plot)
     
     def plot_daily_changes(self, symbols=None, days=100, bins=50):
         # Compute daily changes
